@@ -12,6 +12,9 @@ from AnonXMusic.plugins.sudo.sudoers import sudoers_list
 from AnonXMusic.utils.database import (
     add_served_chat,
     add_served_user,
+    get_served_chats,
+    get_served_users,
+    get_sudoers,
     blacklisted_chats,
     get_lang,
     is_banned_user,
@@ -32,9 +35,12 @@ async def start_pm(client, message: Message, _):
         name = message.text.split(None, 1)[1]
         if name[0:4] == "help":
             keyboard = help_pannel(_)
+            served_chats = len(await get_served_chats())
+            served_users = len(await get_served_users())
             return await message.reply_photo(
                 photo=config.START_IMG_URL,
-                caption=_["help_1"].format(config.SUPPORT_CHAT),
+                caption=_["help_1"].format(config.SUPPORT_CHAT), served_chats,
+                served_users,
                 reply_markup=keyboard,
             )
         if name[0:3] == "sud":
