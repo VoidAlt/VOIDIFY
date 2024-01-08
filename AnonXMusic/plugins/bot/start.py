@@ -89,9 +89,11 @@ async def start_pm(client, message: Message, _):
                 )
     else:
         out = private_panel(_)
+        served_chats = len(await get_served_chats())
+        served_users = len(await get_served_users())
         await message.reply_photo(
             photo=config.START_IMG_URL,
-            caption=_["start_2"].format(message.from_user.mention, app.mention),
+            caption=_["start_2"].format(message.from_user.mention, served_chats, served_users),
             reply_markup=InlineKeyboardMarkup(out),
         )
         if await is_on_off(2):
