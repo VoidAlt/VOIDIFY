@@ -1,35 +1,53 @@
-import asyncio
-from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-IS_BROADCASTING = False
+app = Client("6432487919:AAGnYcWl3VRWNeq8ToeOxpHo2bJQzhKK9EA", api_id=17807190, api_hash="87d7db377d986df687a32d8230314e7f")
 
-@app.on_message(filters.command("broadcast") & SUDOERS)
-@language
-async def broadcast_message(client, message, _):
-    global IS_BROADCASTING
+broadcast_data = {}
 
-    if not IS_BROADCASTING:
-        IS_BROADCASTING = True
-        await message.reply_text("Broadcast started. Please follow the instructions.")
+# Command handler for /broadcast
+@app.on_message(filters.command("broadcast") & filters.private & filters.user("owner_user_id"))
+def start_broadcast(_, message):
+    message.reply_text("Send a picture for your broadcast.")
 
-        # Ask for a picture
-        await message.reply_text("Send a picture for the broadcast.")
-        picture_message = await app.ask(message.chat.id, "Waiting for picture...")
+# Handle picture sent by owner
+@app.on_message(filters.private & filters.photo & filters.user("owner_user_id"))
+def receive_picture(_, message):
+    chat_id = message.chat.id
+    file_id = message.photo[-1].file_id
+    broadcast_data[chat_id] = {"photo": file_id}
+    
+    message.reply_text("Great! Now send the caption for your broadcast.")
 
-        # Ask for a caption
-        await message.reply_text("Provide a caption for the broadcast.")
-        caption_message = await app.ask(message.chat.id, "Waiting for caption...")
+# Handle caption sent by owner
+@app.on_message(filters.private & filters.text & filters.user("owner_user_id"))
+def receive_caption(_, message):
+    chat_id = message.chat.id
+    caption = message.text
+    broadcast_data[chat_id]["caption"] = caption
+    
+    message.reply_text("Now, send the inline buttons for your broadcast in JSON format.")
 
-        # Ask for inline buttons
-        await message.reply_text("Send inline buttons for confirmation.")
-        buttons_message = await app.ask(message.chat.id, "Waiting for buttons...", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Confirm", callback_data="confirm")]]))
+# Handle inline buttons sent by owner
+@app.on_message(filters.private & filters.text & filters.user("owner_user_id"))
+def receive_inline_buttons(_, message):
+    chat_id = message.chat.id
+    inline_buttons = message.text
+    broadcast_data[chat_id]["buttons"] = inline_buttons
+    
+    preview_message = f"Preview your broadcast:\n\n{caption}"
+    buttons = InlineKeyboardMarkup(inline_keyboard=inline_buttons)
+    app.send_photo(chat_id, photo=broadcast_data[chat_id]["photo"], caption=preview_message, reply_markup=buttons)
 
-        # Process the received messages
-        picture = picture_message.photo[-1] if picture_message.photo else None
-        caption = caption_message.text if caption_message.text else "No caption provided"
-        buttons = buttons_message.text if buttons_message.text else "No buttons provided"
+# Handle /confirm command to broadcast the message
+@app.on_message(filters.command("confirm") & filters.private & filters.user("owner_user_id"))
+def confirm_broadcast(_, message):
+    chat_id = message.chat.id
+    if chat_id in broadcast_data:
+        app.send_photo(chat_id, photo=broadcast_data[chat_id]["photo"], caption=broadcast_data[chat_id]["caption"])
+        del broadcast_data[chat_id]
+        message.reply_text("Broadcast sent successfully!")
+    else:
+        message.reply_text("No ongoing broadcast found.")
 
-        await message.reply_text("Broadcast completed.")
-
-        IS_BROADCASTING = False
+app.run()
